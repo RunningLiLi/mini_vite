@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "tsup --watch",
+    "start": "set DEBUG=dev & tsup --watch",
     "build": "tsup --minify"
   },
   "bin": {

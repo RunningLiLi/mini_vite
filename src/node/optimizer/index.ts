@@ -2,8 +2,7 @@ import { build } from "esbuild";
 import scanPlugin from "./scanPlugin";
 import { PRE_BUNDLE_DIR } from "../constants";
 import preBundlePlugin from "./preBundlePlugin";
-export default async function optimize() {
-  const root = process.cwd();
+export async function optimize(root: string) {
   const depSet = new Set<string>();
   await build({
     entryPoints: [`${root}/src/main.tsx`],
