@@ -22,7 +22,6 @@ export function resolvePlugin(): Plugin {
         }
         // 加上 root 路径前缀，处理 /src/main.tsx 的情况
         id = path.join(serverContext.root, id);
-        console.log(serverContext.root, id);
         if (await pathExists(id)) {
           return { id };
         }

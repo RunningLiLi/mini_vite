@@ -1,5 +1,12 @@
 import { NextHandleFunction } from "connect";
-import { isJSRequest, cleanUrl } from "../../utils";
+import { CLIENT_PUBLIC_PATH } from "../../constants";
+import {
+  isJSRequest,
+  isCSSRequest,
+  isImportRequest,
+  isInternalRequest,
+  cleanUrl,
+} from "../../utils";
 import { ServerContext } from "../index";
 import createDebug from "debug";
 
@@ -9,9 +16,12 @@ export async function transformRequest(
   url: string,
   serverContext: ServerContext
 ) {
-  const { pluginContainer } = serverContext;
+  const { moduleGraph, pluginContainer } = serverContext;
   url = cleanUrl(url);
-  // 简单来说，就是依次调用插件容器的 resolveId、load、transform 方法
+  let mod = await moduleGraph.getModuleByUrl(url);
+  if (mod && mod.transformResult) {
+    return mod.transformResult;
+  }
   const resolvedResult = await pluginContainer.resolveId(url);
   let transformResult;
   if (resolvedResult?.id) {
@@ -19,12 +29,16 @@ export async function transformRequest(
     if (typeof code === "object" && code !== null) {
       code = code.code;
     }
+    mod = await moduleGraph.ensureEntryFromUrl(url);
     if (code) {
       transformResult = await pluginContainer.transform(
         code as string,
         resolvedResult?.id
       );
     }
+  }
+  if (mod) {
+    mod.transformResult = transformResult;
   }
   return transformResult;
 }
@@ -38,21 +52,23 @@ export function transformMiddleware(
     }
     const url = req.url;
     debug("transformMiddleware: %s", url);
-    // transform JS request
-    if (isJSRequest(url)) {
-      // 核心编译函数
-      let code = "";
+    // transform JS and CSS request
+    if (
+      isJSRequest(url) ||
+      isCSSRequest(url) ||
+      // 静态资源的 import 请求，如 import logo from './logo.svg?import';
+      isImportRequest(url)
+    ) {
       let result = await transformRequest(url, serverContext);
       if (!result) {
         return next();
       }
       if (result && typeof result !== "string") {
-        code = result.code;
+        result = result.code;
       }
-      // 编译完成，返回响应给浏览器
       res.statusCode = 200;
       res.setHeader("Content-Type", "application/javascript");
-      return res.end(code);
+      return res.end(result);
     }
 
     next();
